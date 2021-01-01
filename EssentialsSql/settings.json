@@ -1,0 +1,16 @@
+{
+  "Database": {
+    "Hostname": "localhost",
+    "Port": 3306,
+    "Database": "sqlfs",
+    "Table": "files",
+    "Username": "root",
+    "Password": ""
+  },
+  "FileSystem": {
+    "Mount": "P:\\",
+    "VolumeName": "Essentials Userdata",
+    "Space": 104857600,
+    "FreeSpace": 209715200
+  }
+}

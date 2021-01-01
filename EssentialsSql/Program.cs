@@ -11,6 +11,15 @@ namespace EssentialsSql
     {
         public static void Main(string[] args)
         {
+            var prefix = "-wd=";
+            var wdArg = args.FirstOrDefault(arg => arg.StartsWith(prefix, StringComparison.InvariantCulture));
+
+            if (wdArg != null)
+            {
+                args = args.Where(arg => arg != wdArg).ToArray();
+                Environment.CurrentDirectory = wdArg.Substring(prefix.Length);
+            }
+
             CreateHostBuilder(args).Build().Run();
         }
 
