@@ -24,5 +24,7 @@ namespace EssentialsSql.Settings
         public long Space { get; set; }
 
         public long FreeSpace { get; set; }
+
+        public string SecurityTemplate { get; set; } = null;
     }
 }

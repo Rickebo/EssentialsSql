@@ -12,6 +12,7 @@ using DokanNet;
 using DokanNet.Logging;
 using EssentialsSql.Settings;
 using Newtonsoft.Json;
+using Serilog;
 using SQLFS.Database;
 using SQLFS.Drive;
 
@@ -19,11 +20,9 @@ namespace EssentialsSql
 {
     public class Worker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
-
         public Worker(ILogger<Worker> logger)
         {
-            _logger = logger;
+
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,28 +32,54 @@ namespace EssentialsSql
             if (!File.Exists(settingsFile))
                 throw new FileNotFoundException($"Settings file \"{settingsFile}\" was not found.");
 
-            _logger.LogInformation("Reading settings...");
+            Log.Information("Reading settings...");
             var settingsContent = await File.ReadAllTextAsync(settingsFile, stoppingToken);
             var settings = JsonConvert.DeserializeObject<Settings.Settings>(settingsContent);
 
             var dbOptions = settings.Database;
             var fsOptions = settings.FileSystem;
 
-            _logger.LogInformation("Initializing database...");
+            fsOptions.SecurityTemplate ??= Environment.CurrentDirectory;
+
+            Log.Information("Initializing database...");
             var db = new FsDatabase<UserdataFile>(dbOptions, fsOptions.FileFactory, fsOptions.FileTemplate);
 
-            _logger.LogInformation("Creating database tabled...");
+            Log.Information("Creating database tabled...");
             await db.CreateTables();
 
             var drive = new SqlFileSystem<UserdataFile>(fsOptions, db);
             const DokanOptions options = DokanOptions.NetworkDrive;
 
-            var dokanLogger = settings.LogToConsole
-                    ? (DokanNet.Logging.ILogger) new ConsoleLogger()
-                    : (DokanNet.Logging.ILogger) new NullLogger();
+            Log.Information($"Mouting drive to {fsOptions.Mount}");
+            drive.Mount(fsOptions.Mount, options, settings.FileSystem.Threads, logger: new DokanLogger());
+        }
 
-            _logger.LogInformation($"Mouting drive to {fsOptions.Mount}");
-            drive.Mount(fsOptions.Mount, options, settings.FileSystem.Threads, logger: dokanLogger);
+        private class DokanLogger : DokanNet.Logging.ILogger
+        {
+            public void Debug(string message, params object[] args)
+            {
+                Log.Debug(message, args);
+            }
+
+            public void Info(string message, params object[] args)
+            {
+                Log.Information(message, args);
+            }
+
+            public void Warn(string message, params object[] args)
+            {
+                Log.Warning(message, args);
+            }
+
+            public void Error(string message, params object[] args)
+            {
+                Log.Error(message, args);
+            }
+
+            public void Fatal(string message, params object[] args)
+            {
+                Log.Fatal(message, args);
+            }
         }
     }
 }

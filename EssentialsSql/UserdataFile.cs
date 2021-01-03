@@ -5,9 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration.CommandLine;
 using MySql.Data.MySqlClient;
+using Serilog;
 using SQLFS;
 using SQLFS.Database;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -99,39 +102,84 @@ namespace EssentialsSql
         public override void SetData(byte[] content)
         {
             Data = content;
-            var text = Encoding.UTF8.GetString(content);
 
-            if (text.Length <= 0)
-                return;
-
-            var obj = _deserializer.Deserialize(new StringReader(text));
-
-
-            if (obj is Dictionary<object, object> dict)
+            try
             {
-                if (dict.TryGetValue("money", out var moneyObj) &&
-                        moneyObj is string moneyString && decimal.TryParse(moneyString, out var moneyValue))
-                    Money = moneyValue;
+                var text = Encoding.UTF8.GetString(content);
 
-                if (dict.TryGetValue("lastAccountName", out var lastNameObj) && lastNameObj is string lastName)
-                    LastName = lastName;
+                if (text.Length <= 0)
+                    return;
 
-                if (dict.TryGetValue("npc", out var npcObj) && npcObj is string npcString &&
-                    bool.TryParse(npcString, out var boolValue))
-                    IsNpc = boolValue;
+                var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                var newLines = new List<string>(lines.Length);
 
-                if (dict.TryGetValue("timestamps", out var timestampsObj) &&
-                    timestampsObj is Dictionary<object, object> timestampsDict)
+                var interestingLines = new string[]
                 {
-                    if (timestampsDict.TryGetValue("logout", out var logoutObj) &&
-                        logoutObj is string logoutString && long.TryParse(logoutString, out var logoutValue))
-                        LastSeen = logoutValue;
-                    else if (timestampsDict.TryGetValue("login", out var loginObj) &&
-                             loginObj is string loginString && long.TryParse(loginString, out var loginValue))
-                        LastSeen = loginValue;
-                    else
-                        LastSeen = 0;
+                    "money:",
+                    "lastAccountName:",
+                    "npc:",
+                    "timestamps:",
+                    "logout:",
+                    "login:"
+                };
+
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    var line = lines[i].Trim();
+                    if (string.IsNullOrWhiteSpace(line) || line.Length <= 0)
+                        continue;
+
+                    var trimmed = line.TrimStart();
+
+                    if (!interestingLines.Any(interesting =>
+                            trimmed.StartsWith(interesting, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+
+                    newLines.Add(lines[i]);
                 }
+
+                var newText = string.Join("\n", newLines);
+
+
+                try
+                {
+                    var obj = _deserializer.Deserialize(new StringReader(newText));
+
+                    if (obj is Dictionary<object, object> dict)
+                    {
+                        if (dict.TryGetValue("money", out var moneyObj) &&
+                            moneyObj is string moneyString && decimal.TryParse(moneyString, out var moneyValue))
+                            Money = moneyValue;
+
+                        if (dict.TryGetValue("lastAccountName", out var lastNameObj) && lastNameObj is string lastName)
+                            LastName = lastName;
+
+                        if (dict.TryGetValue("npc", out var npcObj) && npcObj is string npcString &&
+                            bool.TryParse(npcString, out var boolValue))
+                            IsNpc = boolValue;
+
+                        if (dict.TryGetValue("timestamps", out var timestampsObj) &&
+                            timestampsObj is Dictionary<object, object> timestampsDict)
+                        {
+                            if (timestampsDict.TryGetValue("logout", out var logoutObj) &&
+                                logoutObj is string logoutString && long.TryParse(logoutString, out var logoutValue))
+                                LastSeen = logoutValue;
+                            else if (timestampsDict.TryGetValue("login", out var loginObj) &&
+                                     loginObj is string loginString && long.TryParse(loginString, out var loginValue))
+                                LastSeen = loginValue;
+                            else
+                                LastSeen = 0;
+                        }
+                    }
+                }
+                catch (SyntaxErrorException ex)
+                {
+                    Log.Debug(ex, "Syntax error exception encountered.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "An exception has occurred while parsing data.");
             }
         }
 

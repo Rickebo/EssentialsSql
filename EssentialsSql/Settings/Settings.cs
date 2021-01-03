@@ -10,6 +10,8 @@ namespace EssentialsSql.Settings
     {
         public DbOptions Database { get; set; } = null;
         public FsOptions FileSystem { get; set; } = null;
-        public bool LogToConsole { get; set; } = false;
+        public bool VerboseLog { get; set; } = false;
+        public bool LogToConsole { get; set; } = true;
+        public bool LogToFile { get; set; } = true;
     }
 }
