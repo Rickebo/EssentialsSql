@@ -2,8 +2,7 @@
   "profiles": {
     "EssentialsSql": {
       "commandName": "Project",
-      "commandLineArgs": "\"-wd=C:\\Projects\\Visual Studio 2019\\EssentialsSql\\EssentialsSql\\bin\\Debug\\net5.0\"",
-      "workingDirectory": "C:\\Projects\\Visual Studio 2019\\EssentialsSql\\EssentialsSql\\bin\\Debug\\net5.0",
+      "commandLineArgs": "\"-wd=C:\\Server\\Minecrafters\\EssentialsSql\"",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       },

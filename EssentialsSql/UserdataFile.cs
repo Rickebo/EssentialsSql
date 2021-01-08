@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -152,7 +153,7 @@ namespace EssentialsSql
                 {
                     money = money.Replace("'", "").Replace("\"", "");
 
-                    if (decimal.TryParse(money, out var moneyValue))
+                    if (decimal.TryParse(money, NumberStyles.Float, CultureInfo.InvariantCulture, out var moneyValue))
                         Money = moneyValue;
                 }
 
