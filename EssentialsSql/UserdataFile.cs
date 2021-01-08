@@ -23,7 +23,7 @@ namespace EssentialsSql
         public const string LastSeenColumn = "last_seen";
         public const string NpcColumn = "npc";
 
-        [DatabaseColumn(MoneyColumn, "DECIMAL NOT NULL DEFAULT 0", MySqlDbType.Decimal, IndexName = "money_index")]
+        [DatabaseColumn(MoneyColumn, "DECIMAL(20, 10) NOT NULL DEFAULT 0", MySqlDbType.Decimal, IndexName = "money_index")]
         public decimal Money { get; set; }
 
         [DatabaseColumn(LastNameColumn, "TINYTEXT", MySqlDbType.TinyText)]
@@ -103,20 +103,27 @@ namespace EssentialsSql
         {
             Data = content;
 
+            if (content.All(b => b == 0))
+                return;
+
             try
             {
                 var text = Encoding.UTF8.GetString(content);
 
-                if (text.Length <= 0)
+                if (string.IsNullOrWhiteSpace(text) || text.Length <= 0)
                     return;
 
                 var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
                 var newLines = new List<string>(lines.Length);
 
-                var interestingLines = new string[]
+                const string moneyPrefix = "money:";
+                const string lastNamePrefix = "lastAccountName:";
+                const string npcPrefix = "npc:";
+
+                var interestingLines = new[]
                 {
-                    "money:",
-                    "lastAccountName:",
+                    moneyPrefix,
+                    lastNamePrefix,
                     "npc:",
                     "timestamps:",
                     "logout:",
@@ -139,37 +146,41 @@ namespace EssentialsSql
                 }
 
                 var newText = string.Join("\n", newLines);
+                var money = FindProperty(newLines, "money:");
+
+                if (money != null)
+                {
+                    money = money.Replace("'", "").Replace("\"", "");
+
+                    if (decimal.TryParse(money, out var moneyValue))
+                        Money = moneyValue;
+                }
+
+                var lastNameProperty = FindProperty(newLines, lastNamePrefix);
+                if (lastNameProperty != null)
+                    LastName = lastNameProperty.Trim();
+
+                var isNpcProperty = FindProperty(newLines, npcPrefix);
+                if (isNpcProperty != null && bool.TryParse(isNpcProperty.Trim(), out var isNpcValue))
+                    IsNpc = isNpcValue;
 
 
                 try
                 {
                     var obj = _deserializer.Deserialize(new StringReader(newText));
 
-                    if (obj is Dictionary<object, object> dict)
-                    {
-                        if (dict.TryGetValue("money", out var moneyObj) &&
-                            moneyObj is string moneyString && decimal.TryParse(moneyString, out var moneyValue))
-                            Money = moneyValue;
-
-                        if (dict.TryGetValue("lastAccountName", out var lastNameObj) && lastNameObj is string lastName)
-                            LastName = lastName;
-
-                        if (dict.TryGetValue("npc", out var npcObj) && npcObj is string npcString &&
-                            bool.TryParse(npcString, out var boolValue))
-                            IsNpc = boolValue;
-
-                        if (dict.TryGetValue("timestamps", out var timestampsObj) &&
+                    if (obj is Dictionary<object, object> dict && dict.TryGetValue("timestamps", out var timestampsObj) &&
                             timestampsObj is Dictionary<object, object> timestampsDict)
-                        {
-                            if (timestampsDict.TryGetValue("logout", out var logoutObj) &&
-                                logoutObj is string logoutString && long.TryParse(logoutString, out var logoutValue))
-                                LastSeen = logoutValue;
-                            else if (timestampsDict.TryGetValue("login", out var loginObj) &&
-                                     loginObj is string loginString && long.TryParse(loginString, out var loginValue))
-                                LastSeen = loginValue;
-                            else
-                                LastSeen = 0;
-                        }
+
+                    {
+                        if (timestampsDict.TryGetValue("logout", out var logoutObj) &&
+                            logoutObj is string logoutString && long.TryParse(logoutString, out var logoutValue))
+                            LastSeen = logoutValue;
+                        else if (timestampsDict.TryGetValue("login", out var loginObj) &&
+                                 loginObj is string loginString && long.TryParse(loginString, out var loginValue))
+                            LastSeen = loginValue;
+                        else
+                            LastSeen = 0;
                     }
                 }
                 catch (SyntaxErrorException ex)
@@ -181,6 +192,21 @@ namespace EssentialsSql
             {
                 Log.Error(ex, "An exception has occurred while parsing data.");
             }
+        }
+
+        private string FindProperty(IEnumerable<string> lines, string key)
+        {
+            foreach (var line in lines)
+            {
+                if (!line.StartsWith(key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var value = line.Substring(key.Length);
+
+                return value.Trim();
+            }
+
+            return null;
         }
 
         public override void SaveParameter(MySqlParameter param, string column)
