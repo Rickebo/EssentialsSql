@@ -103,7 +103,7 @@ namespace EssentialsSql
         {
             Data = content;
 
-            if (content.All(b => b == 0))
+            if (!Name.EndsWith(".yml", StringComparison.InvariantCultureIgnoreCase) || content.All(b => b == 0))
                 return;
 
             try
