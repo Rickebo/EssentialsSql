@@ -18,7 +18,8 @@ the database.
 ## Usage
 
 1. Install all prerequisites.
-2. Create and configure a `settings.json`
+2. Clone this repository and build the tool using .NET 5.
+3. Create and configure a `settings.json`
    [(example)](https://github.com/Rickebo/EssentialsSql/blob/master/EssentialsSql/settings.json) file in the tools
    working directory.
-3. Start the tool.
+4. Start the tool.
